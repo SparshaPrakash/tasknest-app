@@ -3,6 +3,7 @@ import axios from 'axios';
 import { startOfWeek, addDays, format, isSameDay, parseISO } from 'date-fns';
 
 function App() {
+  const [activeSection, setActiveSection] = useState('');
   const [tasks, setTasks] = useState([]);
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [reminderTime, setReminderTime] = useState('');
@@ -14,27 +15,89 @@ function App() {
   });
   const [selectedNote, setSelectedNote] = useState(null);
   const [editTaskId, setEditTaskId] = useState(null);
-  const [pomodoroTime, setPomodoroTime] = useState(25 * 60); // 25 minutes
+  const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
   const [isRunning, setIsRunning] = useState(false);
-
   const [journalEntry, setJournalEntry] = useState('');
-  const [savedJournal, setSavedJournal] = useState(() => {
-    return localStorage.getItem('journalEntry') || '';
-  });
+  const [savedJournal, setSavedJournal] = useState(() => localStorage.getItem('journalEntry') || '');
+  const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
+  const [filter, setFilter] = useState('all');
 
-  const handleSaveJournal = () => {
-    if (journalEntry.trim()) {
-      setSavedJournal(journalEntry);
-      localStorage.setItem('journalEntry', journalEntry);
-      setJournalEntry('');
-    }
+  const toggleDarkMode = () => {
+    setIsDarkMode(prev => {
+      localStorage.setItem('darkMode', !prev);
+      return !prev;
+    });
   };
+
+  useEffect(() => {
+    document.body.style.backgroundColor = isDarkMode ? '#121212' : '#ffffff';
+    document.body.style.color = isDarkMode ? '#f0f0f0' : '#000000';
+  }, [isDarkMode]);
 
   useEffect(() => {
     axios.get('http://localhost:5000/tasks')
       .then(res => setTasks(res.data))
       .catch(err => console.error('Error fetching tasks:', err));
   }, []);
+
+   const handleDeleteTask = (id) => {
+    axios.delete(`http://localhost:5000/tasks/${id}`)
+      .then(() => setTasks(tasks.filter(task => task.id !== id)))
+      .catch(err => console.error('Error deleting task:', err));
+  };
+
+  const handleToggleTaskCompletion = (task) => {
+    const updatedTask = { ...task, completed: !task.completed };
+    axios.put(`http://localhost:5000/tasks/${task.id}`, updatedTask)
+      .then(res => setTasks(tasks.map(t => t.id === task.id ? res.data : t)))
+      .catch(err => console.error('Error updating task completion:', err));
+  };
+
+  const filteredTasks = tasks.filter(task => {
+    if (filter === 'completed') return task.completed;
+    if (filter === 'incomplete') return !task.completed;
+    if (filter === 'high') return task.priority === 'High';
+    if (filter === 'medium') return task.priority === 'Medium';
+    if (filter === 'low') return task.priority === 'Low';
+    return true;
+  });
+
+  const renderTaskList = () => (
+    <>
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ marginRight: '0.5rem' }}>Filter:</label>
+        <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+          <option value="all">All</option>
+          <option value="completed">Completed</option>
+          <option value="incomplete">Incomplete</option>
+          <option value="high">High Priority</option>
+          <option value="medium">Medium Priority</option>
+          <option value="low">Low Priority</option>
+        </select>
+      </div>
+      <ul style={{ listStyle: 'none', padding: 0 }}>
+  {filteredTasks.map(task => (
+    <li key={task.id} style={{ marginBottom: '1rem', background: '#f4f4f4', padding: '1rem', borderRadius: '6px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <input type="checkbox" checked={task.completed} onChange={() => toggleTaskCompletion(task)} />
+          <span style={{ textDecoration: task.completed ? 'line-through' : 'none', fontWeight: 'bold' }}>{task.title}</span>
+        </label>
+        <div>
+          <button onClick={() => handleEditTask(task)} style={{ marginLeft: '0.5rem' }}>✏️</button>
+          <button onClick={() => handleDeleteTask(task.id)} style={{ marginLeft: '0.5rem', color: 'red' }}>🗑️</button>
+        </div>
+      </div>
+      <div style={{ fontSize: '0.9rem', color: '#555', marginTop: '0.5rem' }}>
+        Priority: {task.priority} | Reminder: {task.reminder_time ? format(parseISO(task.reminder_time), 'PPpp') : 'None'}
+      </div>
+    </li>
+  ))}
+</ul>
+    </>
+  );
+
+
 
   useEffect(() => {
     let timer;
@@ -73,6 +136,8 @@ function App() {
           setNewTaskTitle('');
           setReminderTime('');
           setPriority('Medium');
+          setFilter('all'); 
+          
         }).catch(err => console.error('Error updating task:', err));
     } else {
       axios.post('http://localhost:5000/tasks', taskData)
@@ -81,6 +146,7 @@ function App() {
           setNewTaskTitle('');
           setReminderTime('');
           setPriority('Medium');
+          setFilter('all'); 
         }).catch(err => console.error('Error adding task:', err));
     }
   };
@@ -90,6 +156,19 @@ function App() {
     setNewTaskTitle(task.title);
     setReminderTime(task.reminder_time ? task.reminder_time.slice(0, 16) : '');
     setPriority(task.priority || 'Medium');
+  };
+
+  const toggleTaskCompletion = (task) => {
+    const updatedTask = {
+      ...task,
+      completed: !task.completed
+    };
+
+    axios.put(`http://localhost:5000/tasks/${task.id}`, updatedTask)
+      .then(res => {
+        setTasks(tasks.map(t => t.id === task.id ? res.data : t));
+      })
+      .catch(err => console.error('Error updating task completion:', err));
   };
 
   const handleSaveNote = () => {
@@ -112,6 +191,14 @@ function App() {
     handleDeleteNote(index);
   };
 
+  const handleSaveJournal = () => {
+    if (journalEntry.trim()) {
+      setSavedJournal(journalEntry);
+      localStorage.setItem('journalEntry', journalEntry);
+      setJournalEntry('');
+    }
+  };
+
   const getTasksForWeek = () => {
     const today = new Date();
     const weekStart = startOfWeek(today, { weekStartsOn: 1 });
@@ -128,139 +215,173 @@ function App() {
     return days;
   };
 
-  return (
-    <div style={{ display: 'flex', padding: '2rem', fontFamily: 'sans-serif', gap: '2rem' }}>
-      <div style={{ flex: 2 }}> {/* Left side */}
-        <h1>📝 TaskNest</h1>
-        <form onSubmit={handleAddTask}>
-          <input type="text" placeholder="Enter new task..." value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} style={{ padding: '0.5rem', fontSize: '1rem', width: '300px' }} />
-          <input type="datetime-local" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} style={{ padding: '0.5rem', fontSize: '1rem', marginTop: '0.5rem', display: 'block' }} />
-          <select value={priority} onChange={(e) => setPriority(e.target.value)} style={{ marginTop: '0.5rem', padding: '0.5rem', fontSize: '1rem' }}>
-            <option value="High">High</option>
-            <option value="Medium">Medium</option>
-            <option value="Low">Low</option>
-          </select>
-          <button type="submit" style={{ marginLeft: '1rem', padding: '0.5rem 1rem' }}>{editTaskId ? 'Update' : 'Add'}</button>
-        </form>
+  const renderContent = () => {
+    switch (activeSection) {
+      case 'tasks':
+        return (
+          <div style={{ flex: 1, padding: '2rem' }}>
+            <h1 style={{ marginBottom: '0.5rem', fontSize: '2rem', fontFamily: 'sans-serif' }}>✅ Tasks</h1>
+            <p style={{ marginBottom: '1.5rem', fontStyle: 'italic', color: '#777' }}>
+              "Small steps every day lead to big results."
+            </p>
 
-        <ul style={{ marginTop: '2rem', padding: 0 }}>
-          {tasks.map(task => (
-            <li key={task.id} style={{ listStyle: 'none', marginBottom: '1rem', padding: '0.75rem', border: '1px solid #ccc', borderRadius: '8px', width: '100%', maxWidth: '500px' }}>
-              <div style={{ display: 'flex', alignItems: 'center' }}>
-                <input type="checkbox" checked={task.completed} onChange={() => {
-                  axios.put(`http://localhost:5000/tasks/${task.id}`, { completed: !task.completed })
-                    .then(res => {
-                      const updated = tasks.map(t => t.id === task.id ? res.data : t);
-                      setTasks(updated);
-                    })
-                    .catch(err => console.error('Error updating task:', err));
-                }} />
-                <span style={{ marginLeft: '0.5rem', textDecoration: task.completed ? 'line-through' : 'none', flexGrow: 1 }}>{task.title} <small style={{ marginLeft: '0.5rem', color: '#888' }}>({task.priority || 'Medium'})</small></span>
-                <button onClick={() => handleEditTask(task)} style={{ marginLeft: '0.5rem', padding: '0.3rem 0.7rem', backgroundColor: '#f1c40f', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-                <button onClick={() => {
-                  axios.delete(`http://localhost:5000/tasks/${task.id}`)
-                    .then(() => setTasks(tasks.filter(t => t.id !== task.id)))
-                    .catch(err => console.error('Error deleting task:', err));
-                }} style={{ marginLeft: '0.5rem', padding: '0.3rem 0.7rem', backgroundColor: '#e74c3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
-              </div>
-              {task.reminder_time && (
-                <small style={{ marginTop: '0.4rem', marginLeft: '1.5rem', display: 'block', color: '#555' }}>
-                  🔔 Reminder: {new Date(task.reminder_time).toLocaleString()}
-                </small>
-              )}
-            </li>
-          ))}
-        </ul>
+            <div style={{ marginBottom: '1rem' }}>
+  <label style={{ marginRight: '0.5rem' }}>✨ Filter by Priority:</label>
+  <select value={filter} onChange={(e) => setFilter(e.target.value)} style={{ padding: '0.3rem' }}>
+    <option value="all">All</option>
+    <option value="completed">Completed</option>
+    <option value="incomplete">Incomplete</option>
+    <option value="high">High Priority</option>
+    <option value="medium">Medium Priority</option>
+    <option value="low">Low Priority</option>
+  </select>
+</div>
 
-        <h2 style={{ marginTop: '3rem' }}>🗓️ Weekly Calendar</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '1rem', marginTop: '1rem' }}>
-          {getTasksForWeek().map(({ date, tasks }) => (
-            <div key={date} style={{ border: '1px solid #ccc', padding: '1rem', borderRadius: '8px' }}>
-              <strong>{format(date, 'EEE dd')}</strong>
-              <ul style={{ marginTop: '0.5rem', paddingLeft: '1rem' }}>
-                {tasks.length > 0 ? tasks.map(task => (
-                  <li key={task.id}>📝 {task.title} ({task.priority || 'Medium'})</li>
-                )) : <li style={{ color: '#aaa' }}>No tasks</li>}
-              </ul>
-            </div>
-          ))}
-        </div>
+            
 
-        <h2 style={{ marginTop: '3rem' }}>⏳ Pomodoro Timer</h2>
-        <div style={{ marginTop: '1rem', fontSize: '2rem' }}>{formatTime(pomodoroTime)}</div>
-        <button onClick={() => setIsRunning(!isRunning)} style={{ marginTop: '1rem', padding: '0.5rem 1rem', backgroundColor: isRunning ? '#e67e22' : '#2ecc71', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-          {isRunning ? 'Pause' : 'Start'} Pomodoro
-        </button>
+            <form onSubmit={handleAddTask} style={{ marginBottom: '2rem', display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <input type="text" placeholder="Enter new task..." value={newTaskTitle} onChange={(e) => setNewTaskTitle(e.target.value)} style={{ padding: '0.5rem', flex: '1' }} />
+              <input type="datetime-local" value={reminderTime} onChange={(e) => setReminderTime(e.target.value)} style={{ padding: '0.5rem' }} />
+              <select value={priority} onChange={(e) => setPriority(e.target.value)} style={{ padding: '0.5rem' }}>
+                <option value="High">High</option>
+                <option value="Medium">Medium</option>
+                <option value="Low">Low</option>
+              </select>
+              <button type="submit" style={{ padding: '0.5rem 1rem', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px' }}>
+                {editTaskId ? 'Update' : 'Add'}
+              </button>
+            </form>
 
-        <div style={{ marginTop: '3rem' }}>
-          <h2>📓 Journal</h2>
-          <textarea
-            value={journalEntry}
-            onChange={(e) => setJournalEntry(e.target.value)}
-            placeholder="Write your private thoughts..."
-            style={{ width: '100%', height: '150px', padding: '0.5rem', fontSize: '1rem' }}
-          />
-          <button
-            onClick={handleSaveJournal}
-            style={{ marginTop: '0.5rem', padding: '0.5rem 1rem', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-          >
-            Save Journal
-          </button>
-          {savedJournal && (
-            <div style={{ marginTop: '1rem', background: '#f4f4f4', padding: '1rem', borderRadius: '6px' }}>
-              <h4>Your Last Saved Entry:</h4>
-              <p style={{ whiteSpace: 'pre-wrap' }}>{savedJournal}</p>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div style={{ flex: 1, backgroundColor: '#f0f0f0', border: '1px solid #ccc', borderRadius: '8px', padding: '1rem', height: 'auto' }}> {/* Right side */}
-        <h2>🗒️ Notes</h2>
-        <textarea
-          value={noteInput}
-          onChange={(e) => setNoteInput(e.target.value)}
-          placeholder="Write your thoughts here..."
-          style={{ width: '100%', height: '100px', padding: '0.5rem', fontSize: '1rem' }}
-        />
-        <button
-          onClick={handleSaveNote}
-          style={{ marginTop: '0.5rem', padding: '0.5rem 1rem', backgroundColor: '#3498db', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-        >
-          Save Note
-        </button>
-
-        <ul style={{ marginTop: '1rem', paddingLeft: '0', listStyle: 'none' }}>
-          {savedNotes.map((note, index) => (
-            <li
-              key={index}
-              style={{
-                position: 'relative',
-                marginBottom: '0.5rem',
-                cursor: 'pointer',
-                color: '#333',
-                background: '#fff',
-                padding: '0.5rem',
-                borderRadius: '4px'
-              }}
-              onClick={() => setSelectedNote(note)}
-            >
-              {note.length > 30 ? note.slice(0, 30) + '...' : note}
-              <div style={{ position: 'absolute', right: '8px', top: '4px' }}>
-                <button onClick={(e) => { e.stopPropagation(); handleEditNote(index); }} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px', marginRight: '0.2rem' }}>🖊️</button>
-                <button onClick={(e) => { e.stopPropagation(); handleDeleteNote(index); }} style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '14px' }}>🗑️</button>
-              </div>
-            </li>
-          ))}
-        </ul>
-
-        {selectedNote && (
-          <div style={{ marginTop: '1rem', background: '#fff', padding: '0.75rem', borderRadius: '6px', color: '#222', whiteSpace: 'pre-wrap' }}>
-            <p>{selectedNote}</p>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+  {filteredTasks.map(task => (
+                <li key={task.id} style={{ marginBottom: '1rem', background: '#f4f4f4', padding: '1rem', borderRadius: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                      <input type="checkbox" checked={task.completed} onChange={() => toggleTaskCompletion(task)} />
+                      <span style={{ textDecoration: task.completed ? 'line-through' : 'none', fontWeight: 'bold' }}>{task.title}</span>
+                    </label>
+                    <div>
+  <button onClick={() => handleEditTask(task)} style={{ marginLeft: '0.5rem' }}>✏️</button>
+  <button onClick={() => handleDeleteTask(task.id)} style={{ marginLeft: '0.5rem', color: 'red' }}>🗑️</button>
+</div>
+                  </div>
+                  <div style={{ fontSize: '0.9rem', color: '#555', marginTop: '0.5rem' }}>
+                    Priority: {task.priority} | Reminder: {task.reminder_time ? format(parseISO(task.reminder_time), 'PPpp') : 'None'}
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-        )}
+        );
+
+      case 'calendar':
+        return (
+          <div style={{ flex: 1, padding: '2rem' }}>
+            <h2>📅 Weekly Calendar</h2>
+            {getTasksForWeek().map(({ date, tasks }) => (
+              <div key={date} style={{ marginBottom: '1rem' }}>
+                <strong>{format(date, 'EEE dd')}</strong>
+                <ul style={{ marginLeft: '1rem' }}>
+                  {tasks.length > 0 ? (
+                    tasks.map(task => <li key={task.id}>• {task.title}</li>)
+                  ) : (
+                    <li style={{ color: '#888' }}>No tasks scheduled</li>
+                  )}
+                </ul>
+              </div>
+            ))}
+          </div>
+        );
+
+      case 'notes':
+        return (
+          <div style={{ flex: 1, padding: '2rem' }}>
+            <h2>🗒️ Notes</h2>
+            <textarea value={noteInput} onChange={(e) => setNoteInput(e.target.value)} />
+            <button onClick={handleSaveNote}>Save Note</button>
+            <ul>
+              {savedNotes.map((note, index) => (
+                <li key={index}>{note}</li>
+              ))}
+            </ul>
+          </div>
+        );
+
+      case 'journal':
+        return (
+          <div style={{ flex: 1, padding: '2rem' }}>
+            <h2>📓 Journal</h2>
+            <textarea value={journalEntry} onChange={(e) => setJournalEntry(e.target.value)} />
+            <button onClick={handleSaveJournal}>Save Journal</button>
+            {savedJournal && <p>{savedJournal}</p>}
+          </div>
+        );
+
+      case 'pomodoro':
+        return (
+          <div style={{ flex: 1, padding: '2rem' }}>
+            <h2>⏳ Pomodoro Timer</h2>
+            <div>{formatTime(pomodoroTime)}</div>
+            <button onClick={() => setIsRunning(!isRunning)}>{isRunning ? 'Pause' : 'Start'} Pomodoro</button>
+          </div>
+        );
+
+      default:
+        return (
+          <div style={{ flex: 1, padding: '2rem', textAlign: 'center' }}>
+            <h1 style={{ fontFamily: 'cursive', fontSize: '2rem' }}>👋 Welcome to TaskNest!</h1>
+            <p style={{ marginTop: '1rem', fontSize: '1.1rem' }}>Click any section from the sidebar to get started!</p>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <>
+      <button onClick={toggleDarkMode} style={{
+        position: 'fixed', top: '1rem', right: '1rem', padding: '0.5rem 1rem',
+        backgroundColor: isDarkMode ? '#f39c12' : '#2c3e50', color: 'white',
+        border: 'none', borderRadius: '6px', cursor: 'pointer', zIndex: 999
+      }}>
+        {isDarkMode ? '☀️ Light Mode' : '🌙 Dark Mode'}
+      </button>
+
+      <div style={{
+        display: 'flex', fontFamily: 'sans-serif',
+        backgroundColor: isDarkMode ? '#1e1e1e' : '#ffffff',
+        color: isDarkMode ? '#f0f0f0' : '#000000', minHeight: '100vh'
+      }}>
+        <div style={{
+          width: '150px', backgroundColor: isDarkMode ? '#2c2c2c' : '#f5f5f5',
+          padding: '1.5rem 1rem 1rem 1rem', borderRight: '1px solid #ccc'
+        }}>
+          <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
+            <h2 style={{ fontFamily: 'cursive', fontSize: '1.4rem', margin: 0 }}>📝 TaskNest</h2>
+          </div>
+          <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 1rem 0', transform: 'translateY(-30px)' }}>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}>
+              <a href="#home" onClick={(e) => { e.preventDefault(); setActiveSection(''); }} style={{ color: isDarkMode ? '#f0f0f0' : '#000000', textDecoration: 'none' }}>🏠 Home</a>
+            </li>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}>
+              <a href="#tasks" onClick={(e) => { e.preventDefault(); setActiveSection('tasks'); }} style={{ color: isDarkMode ? '#f0f0f0' : '#000000', textDecoration: 'none' }}>✅ Tasks</a>
+            </li>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}>
+              <a href="#notes" onClick={(e) => { e.preventDefault(); setActiveSection('notes'); }} style={{ color: isDarkMode ? '#f0f0f0' : '#000000', textDecoration: 'none' }}>🗒️ Notes</a>
+            </li>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}>
+              <a href="#calendar" onClick={(e) => { e.preventDefault(); setActiveSection('calendar'); }} style={{ color: isDarkMode ? '#f0f0f0' : '#000000', textDecoration: 'none' }}>📅 Calendar</a>
+            </li>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0' }}>
+              <a href="#reminders" onClick={(e) => { e.preventDefault(); setActiveSection('reminders'); }} style={{ color: isDarkMode ? '#f0f0f0' : '#000000', textDecoration: 'none' }}>🔔 Reminders</a>
+            </li>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0', borderTop: '1px solid #999' }}>
+              <a href="#pomodoro" onClick={(e) => { e.preventDefault(); setActiveSection('pomodoro'); }} style={{ color: isDarkMode ? '#f0f0f0' : '#000000', textDecoration: 'none' }}>⏳ Pomodoro</a>
+            </li>
+          </ul>
+        </div>
+        {renderContent()}
       </div>
-    </div>
+    </>
   );
 }
 
