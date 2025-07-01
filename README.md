@@ -1,74 +1,68 @@
 # 📝 TaskNest
 
-**TaskNest** is a full-stack productivity app that helps you manage your life — tasks, notes, journal entries, calendar view, and Pomodoro timer, all in one beautiful interface. Built with a Flask backend and a modern React frontend, it supports JWT-based authentication and is fully Dockerized for easy deployment.
+**TaskNest** is a full-stack productivity app that helps you manage your life — tasks, notes, journal entries, calendar view, and Pomodoro timer — all in one beautiful interface.
 
-🚀 Features
+Built with a **Flask** backend and **React** frontend, it supports **JWT-based authentication** and is fully **Dockerized** for easy deployment and CI/CD automation.
 
-🔐 JWT Auth with secure login
+---
 
-✅ Task creation, completion, and filtering (user-specific)
+## 🚀 Features
 
-📝 Notes and Journal with Edit/Delete support
+- 🔐 JWT Auth with secure login
+- ✅ Task creation, completion, and filtering (user-specific)
+- 📝 Notes and Journal with Edit/Delete support
+- 📆 Calendar View
+- ⏱️ Pomodoro Timer with Start/Pause
+- 🌗 Dark Mode toggle (persists via `localStorage`)
+- 🐳 Docker + Docker Compose support
+- 🔁 GitHub Actions-based CI/CD pipeline
 
-🗕️ Calendar View
+---
 
-⏱️ Pomodoro Timer with Start/Pause
+## 🧱 Tech Stack
 
-🌗 Dark Mode toggle (persists via localStorage)
+| Layer      | Technologies                           |
+|------------|----------------------------------------|
+| Frontend   | React (Vite), Axios, date-fns          |
+| Backend    | Flask, SQLAlchemy, PyJWT               |
+| Database   | SQLite (for development)               |
+| DevOps     | Docker, Docker Compose, GitHub Actions |
 
-🛣️ Docker + Docker Compose support
+---
 
-🔁 GitHub Actions-based CI/CD
+## 📦 Getting Started (with Docker)
 
-
-🧱 Tech Stack
-
-Layer                 Tech
-
-Frontend     React (Vite), Axios, date-fns
-
-Backend      Flask, SQLAlchemy, JWT
-
-Database     SQLite (dev)
-
-DevOps       Docker, Docker Compose, GitHub Actions
-
-
-📦 Getting Started (Docker)
-
-Clone and spin up both frontend and backend in containers:
+Clone the repo and start the app using Docker:
 
 git clone https://github.com/SparshaPrakash/tasknest-app
 cd TaskNest
 
-# Start all services
+# Start all services (frontend + backend)
 docker compose up --build
 
 Frontend: http://localhost:5173
 
 Backend API: http://localhost:5000
 
+-------------------------
 ⚙️ Local Development (Hot Reload)
-
-Backend:
+Backend
 
 cd backend
 python3 -m venv venv
-source venv/bin/activate
+source venv/bin/activate     # or venv\Scripts\activate on Windows
 pip install -r requirements.txt
 python app.py
 
-Frontend:
-
+Frontend
 cd frontend
 npm install
 npm run dev
 
-🐳 Docker Notes (Frontend Dev)
-
-For active development with platform-specific binaries:
-
-docker-compose.yml:
+--------------------------------------
+🐳 Frontend Docker (for Live Dev)
+For active frontend development with binary compatibility:
+ci.yml:
 
 services:
   frontend:
@@ -84,67 +78,38 @@ services:
 volumes:
   frontend_node_modules:
 
+--------------------------------------------------
 🔁 CI/CD – GitHub Actions
+This project includes a CI/CD pipeline that:
 
-This project includes a GitHub Actions pipeline that:
+✅ Installs backend dependencies & runs unit tests
 
-Installs backend dependencies and runs tests
+✅ Lints code with flake8
 
-Installs frontend packages and builds production assets
+✅ Builds Docker images for frontend & backend
 
--------------
-## 🚀 Live Setup (via Docker Pull)
+✅ Pushes images to GitHub Container Registry (GHCR)
 
-You can run the app from anywhere without cloning or building! Just pull and run the Docker images:
+Workflow file: .github/workflows/ci.yml
 
-### 🔧 Run Backend:
+----------------------------------------------------------
 
-```bash
+🚀 Live Deployment via Docker Pull
+Run the app anywhere without building locally — just pull and run:
+
+Backend
 docker pull ghcr.io/sparshaprakash/tasknest-backend:latest
 docker run -p 5000:5000 ghcr.io/sparshaprakash/tasknest-backend:latest
-```
 
-### 🔧 Run Frontend:
-
-```bash
+Frontend
 docker pull ghcr.io/sparshaprakash/tasknest-frontend:latest
 docker run -p 3000:3000 ghcr.io/sparshaprakash/tasknest-frontend:latest
-```
 
----
+--------------------------------------------------------------
+🧪 Testing & Linting
+From the backend/ folder:
 
-## 🧪 Testing
-
-```bash
-cd backend
 pip install -r requirements.txt
-pytest
-flake8 .
-```
+pytest       # Run tests
+flake8 .     # Run linter
 
-Includes unit tests for `/login` and route availability.
-
----
-
-## 🔄 CI/CD Pipeline
-
-- ✅ GitHub Actions for automated testing + linting
-- ✅ Builds & pushes backend/frontend Docker images
-- ✅ Publishes to GitHub Container Registry (GHCR)
-
-Workflow file: `.github/workflows/ci.yml`
-
----
-
-## 🐳 Docker Build (if you want to build manually)
-
-```bash
-# Backend
-cd backend
-docker build -t tasknest-backend .
-docker run -p 5000:5000 tasknest-backend
-
-# Frontend
-cd frontend
-docker build -t tasknest-frontend .
-docker run -p 3000:3000 tasknest-frontend
