@@ -14,11 +14,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 🔧 Set up Docker Buildx
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      # 🔐 Log in to GitHub Container Registry
       - name: Login to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -26,18 +24,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # 📦 Build and Push Backend Image
       - name: Build and push backend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/tasknest-backend:latest
-
-      # 📦 Build and Push Frontend Image
+          tags: ghcr.io/sparshaprakash/tasknest-backend:latest
       - name: Build and push frontend Docker image
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/tasknest-frontend:latest
+          tags: ghcr.io/sparshaprakash/tasknest-frontend:latest
