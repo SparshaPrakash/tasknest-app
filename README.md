@@ -92,51 +92,59 @@ Installs backend dependencies and runs tests
 
 Installs frontend packages and builds production assets
 
-.github/workflows/ci.yml:
+-------------
+## 🚀 Live Setup (via Docker Pull)
 
-name: CI/CD
+You can run the app from anywhere without cloning or building! Just pull and run the Docker images:
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+### 🔧 Run Backend:
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+```bash
+docker pull ghcr.io/sparshaprakash/tasknest-backend:latest
+docker run -p 5000:5000 ghcr.io/sparshaprakash/tasknest-backend:latest
+```
 
-    steps:
-      - uses: actions/checkout@v4
+### 🔧 Run Frontend:
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
+```bash
+docker pull ghcr.io/sparshaprakash/tasknest-frontend:latest
+docker run -p 3000:3000 ghcr.io/sparshaprakash/tasknest-frontend:latest
+```
 
-      - name: Install backend dependencies
-        working-directory: ./backend
-        run: |
-          python -m venv venv
-          source venv/bin/activate
-          pip install -r requirements.txt
+---
 
-      - name: Run backend tests
-        working-directory: ./backend
-        run: |
-          source venv/bin/activate
-          pytest
+## 🧪 Testing
 
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 18
+```bash
+cd backend
+pip install -r requirements.txt
+pytest
+flake8 .
+```
 
-      - name: Install frontend dependencies
-        working-directory: ./frontend
-        run: npm install
+Includes unit tests for `/login` and route availability.
 
-      - name: Build frontend
-        working-directory: ./frontend
-        run: npm run build
+---
 
+## 🔄 CI/CD Pipeline
+
+- ✅ GitHub Actions for automated testing + linting
+- ✅ Builds & pushes backend/frontend Docker images
+- ✅ Publishes to GitHub Container Registry (GHCR)
+
+Workflow file: `.github/workflows/ci.yml`
+
+---
+
+## 🐳 Docker Build (if you want to build manually)
+
+```bash
+# Backend
+cd backend
+docker build -t tasknest-backend .
+docker run -p 5000:5000 tasknest-backend
+
+# Frontend
+cd frontend
+docker build -t tasknest-frontend .
+docker run -p 3000:3000 tasknest-frontend
