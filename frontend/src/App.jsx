@@ -13,15 +13,20 @@ function App() {
   const [savedNotes, setSavedNotes] = useState(() => JSON.parse(localStorage.getItem('taskNotesList')) || []);
   const [selectedNote, setSelectedNote] = useState(null);
   const [editTaskId, setEditTaskId] = useState(null);
-  const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
-  const [isRunning, setIsRunning] = useState(false);
-  const [journalEntry, setJournalEntry] = useState('');
-  const [savedJournal, setSavedJournal] = useState(() => localStorage.getItem('journalEntry') || '');
+  // const [pomodoroTime, setPomodoroTime] = useState(25 * 60);
+  // const [isRunning, setIsRunning] = useState(false);
+  // const [journalEntry, setJournalEntry] = useState('');
+  // const [savedJournal, setSavedJournal] = useState(() => localStorage.getItem('journalEntry') || '');
   const [isDarkMode, setIsDarkMode] = useState(() => localStorage.getItem('darkMode') === 'true');
   const [filter, setFilter] = useState('all');
   const [token, setToken] = useState(localStorage.getItem('token') || '');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [pomodoroSeconds, setPomodoroSeconds] = useState(25 * 60);
+  const [isPomodoroRunning, setIsPomodoroRunning] = useState(false);
+  const [journalInput, setJournalInput] = useState('');
+  const [editingNoteIndex, setEditingNoteIndex] = useState(null);
+  const [journalEntries, setJournalEntries] = useState(() => JSON.parse(localStorage.getItem('journalEntries') || '[]'));
 
   const toggleDarkMode = () => {
     setIsDarkMode(prev => {
@@ -46,6 +51,14 @@ function App() {
     }
   }, [token]);
 
+  useEffect(() => {
+    let timer;
+    if (isPomodoroRunning && pomodoroSeconds > 0) {
+      timer = setTimeout(() => setPomodoroSeconds(prev => prev - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [isPomodoroRunning, pomodoroSeconds]);
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -69,10 +82,36 @@ function App() {
 
   const handleSaveNote = () => {
     if (!noteInput.trim()) return;
-    const updatedNotes = [...savedNotes, noteInput];
+    const updatedNotes = editingNoteIndex !== null
+      ? savedNotes.map((note, idx) => idx === editingNoteIndex ? noteInput : note)
+      : [...savedNotes, noteInput];
+
     setSavedNotes(updatedNotes);
     localStorage.setItem('taskNotesList', JSON.stringify(updatedNotes));
     setNoteInput('');
+    setEditingNoteIndex(null);
+  };
+
+  const handleEditNote = (index) => {
+    setNoteInput(savedNotes[index]);
+    setEditingNoteIndex(index);
+  };
+
+  const handleDeleteNote = (index) => {
+    const updatedNotes = savedNotes.filter((_, i) => i !== index);
+    setSavedNotes(updatedNotes);
+    localStorage.setItem('taskNotesList', JSON.stringify(updatedNotes));
+  };
+
+const handleDeleteJournalEntry = (index) => {
+    const updated = journalEntries.filter((_, i) => i !== index);
+    setJournalEntries(updated);
+    localStorage.setItem('journalEntries', JSON.stringify(updated));
+  };
+
+  const handleEditJournalEntry = (index) => {
+    setJournalInput(journalEntries[index]);
+    handleDeleteJournalEntry(index);
   };
 
 const handleAddOrUpdateTask = (e) => {
@@ -155,6 +194,15 @@ const handleAddOrUpdateTask = (e) => {
     return true;
   });
 
+  const getTasksForWeek = () => {
+    const start = startOfWeek(new Date(), { weekStartsOn: 1 });
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = addDays(start, i);
+      const dayTasks = tasks.filter(task => task.reminder_time && isSameDay(parseISO(task.reminder_time), date));
+      return { date, tasks: dayTasks };
+    });
+  };
+
     const renderSection = () => {
     switch (activeSection) {
       case 'tasks':
@@ -212,13 +260,19 @@ const handleAddOrUpdateTask = (e) => {
         return (
           <div>
             <h2>🗒️ Notes</h2>
-            <textarea value={noteInput} onChange={(e) => setNoteInput(e.target.value)} />
-            <button onClick={handleSaveNote}>Save Note</button>
-            <ul>
+            <textarea value={noteInput} onChange={e => setNoteInput(e.target.value)} placeholder="Write a note..." />
+            <button onClick={handleSaveNote}>{editingNoteIndex !== null ? 'Update Note' : 'Save Note'}</button>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
               {savedNotes.map((note, index) => (
-                <li key={index}>{note}</li>
-              ))}
-            </ul>
+               <li key={index} style={{ padding: '0.5rem 0', borderBottom: '1px solid #999', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>{note}</span>
+                  <div>
+                    <button onClick={() => handleEditNote(index)} style={{ fontSize: '0.5rem', marginRight: '0.5rem' }}>✏️</button>
+                    <button onClick={() => handleDeleteNote(index)} style={{ fontSize: '0.5rem', color: 'red' }}>🗑️</button>
+                 </div>
+             </li>
+            ))}
+          </ul>
           </div>
         );
       case 'calendar':
@@ -238,8 +292,37 @@ const handleAddOrUpdateTask = (e) => {
       case 'pomodoro':
         return (
           <div>
-            <h2>⏳ Pomodoro</h2>
-            <p>Pomodoro timer UI here</p>
+            <h2>⏳ Pomodoro Timer</h2>
+            <p>{Math.floor(pomodoroSeconds / 60)}:{('0' + pomodoroSeconds % 60).slice(-2)}</p>
+            <button onClick={() => setIsPomodoroRunning(!isPomodoroRunning)}>
+              {isPomodoroRunning ? 'Pause' : 'Start'}
+            </button>
+            {pomodoroSeconds === 0 && <p>🎉 Great job! Take a 5 min break.</p>}
+          </div>
+        );
+      case 'journal':
+        return (
+          <div>
+            <h2>📖 Journal</h2>
+            <p><em>“Your mind is a garden. Your thoughts are the seeds.”</em></p>
+            <textarea value={journalInput} onChange={e => setJournalInput(e.target.value)} placeholder="Write your thoughts..." />
+            <button onClick={() => {
+              const updated = [...journalEntries, journalInput];
+              setJournalEntries(updated);
+              localStorage.setItem('journalEntries', JSON.stringify(updated));
+              setJournalInput('');
+            }}>Save Entry</button>
+            <ul style={{ listStyle: 'none', padding: 0 }}>
+             {journalEntries.map((entry, idx) => (
+               <li key={idx} style={{ padding: '0.5rem 0', borderBottom: '1px solid #999', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>{entry}</span>
+                <div>
+                  <button onClick={() => handleEditJournalEntry(idx)} style={{ fontSize: '0.5rem', marginRight: '0.5rem' }}>✏️</button>
+                  <button onClick={() => handleDeleteJournalEntry(idx)} style={{ fontSize: '0.5rem', color: 'red' }}>🗑️</button>
+                </div>
+              </li>
+            ))}
+          </ul>
           </div>
         );
       default:
@@ -281,7 +364,8 @@ const handleAddOrUpdateTask = (e) => {
             <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}><a href="#tasks" onClick={(e) => { e.preventDefault(); setActiveSection('tasks'); }}>✅ Tasks</a></li>
             <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}><a href="#notes" onClick={(e) => { e.preventDefault(); setActiveSection('notes'); }}>🗒️ Notes</a></li>
             <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}><a href="#calendar" onClick={(e) => { e.preventDefault(); setActiveSection('calendar'); }}>📅 Calendar</a></li>
-            <li style={{ textAlign: 'center', padding: '0.75rem 0' }}><a href="#pomodoro" onClick={(e) => { e.preventDefault(); setActiveSection('pomodoro'); }}>⏳ Pomodoro</a></li>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0', borderBottom: '1px solid #999' }}><a href="#pomodoro" onClick={(e) => { e.preventDefault(); setActiveSection('pomodoro'); }}>⏳ Pomodoro</a></li>
+            <li style={{ textAlign: 'center', padding: '0.75rem 0' }}><a href="#journal" onClick={(e) => { e.preventDefault(); setActiveSection('journal'); }}>📖 My Journal</a></li>
           </ul>
         </div>
         <div style={{ flex: 1, padding: '2rem' }}>{renderSection()}</div>
