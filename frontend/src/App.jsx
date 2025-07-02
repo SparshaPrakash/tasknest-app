@@ -42,7 +42,8 @@ function App() {
 
   useEffect(() => {
     if (token) {
-      axios.get('http://localhost:5000/tasks', { headers: { Authorization: `Bearer ${token}` } })
+      axios.get(`${import.meta.env.VITE_API_BASE_URL}/tasks`, {headers: { Authorization: `Bearer ${token}` }})
+
         .then(res => setTasks(res.data))
         .catch(() => {
           localStorage.removeItem('token');
@@ -62,7 +63,7 @@ function App() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:5000/login', { username, password });
+      const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL}/login`, { username, password });
       const accessToken = res.data.access_token;
       localStorage.setItem('token', accessToken);
       setToken(accessToken);
@@ -124,18 +125,18 @@ const handleAddOrUpdateTask = (e) => {
     };
 
     if (editTaskId) {
-      axios.put(`http://localhost:5000/tasks/${editTaskId}`, taskData, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      axios.put(`${import.meta.env.VITE_API_BASE_URL}/tasks/${editTaskId}`, taskData, {
+  headers: { Authorization: `Bearer ${token}` }
+})
         .then(res => {
           setTasks(tasks.map(t => t.id === editTaskId ? res.data : t));
           resetForm();
         })
         .catch(err => console.error('Error updating task:', err));
     } else {
-      axios.post('http://localhost:5000/tasks', taskData, {
-        headers: { Authorization: `Bearer ${token}` }
-      })
+      axios.post(`${import.meta.env.VITE_API_BASE_URL}/tasks`, taskData, {
+  headers: { Authorization: `Bearer ${token}` }
+})
         .then(res => {
           setTasks([...tasks, res.data]);
           resetForm();
@@ -161,7 +162,9 @@ const handleAddOrUpdateTask = (e) => {
   };
 
   const handleDeleteTask = (id) => {
-    axios.delete(`http://localhost:5000/tasks/${id}`, { headers: { Authorization: `Bearer ${token}` } })
+  axios.delete(`${import.meta.env.VITE_API_BASE_URL}/tasks/${id}`, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
       .then(() => setTasks(tasks.filter(task => task.id !== id)))
       .catch(err => console.error('Error deleting task:', err));
   };
@@ -173,9 +176,9 @@ const handleAddOrUpdateTask = (e) => {
       priority: task.priority,
       reminder_time: task.reminder_time
     };
-    axios.put(`http://localhost:5000/tasks/${task.id}`, updatedTask, {
-      headers: { Authorization: `Bearer ${token}` }
-    })
+    axios.put(`${import.meta.env.VITE_API_BASE_URL}/tasks/${task.id}`, updatedTask, {
+    headers: { Authorization: `Bearer ${token}` }
+  })
       .then(res => setTasks(tasks.map(t => t.id === task.id ? res.data : t)))
       .catch(err => console.error('Error toggling completion:', err));
   };
