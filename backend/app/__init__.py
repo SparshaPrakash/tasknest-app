@@ -14,11 +14,18 @@ def create_app():
     # Initialize extensions
     db.init_app(app)
     jwt = JWTManager(app)
-    CORS(app, origins=["http://localhost:5173"], supports_credentials=True)
+
+    # ✅ Enable CORS for production and localhost
+    CORS(app, origins=["http://localhost:5173", "https://tasknest-frontend.onrender.com"], supports_credentials=True)
 
     # Register Blueprints
     app.register_blueprint(main)
     app.register_blueprint(auth_bp)
+
+    # ✅ Add health check route
+    @app.route("/")
+    def index():
+        return {"message": "TaskNest backend is live!"}, 200
 
     # Create tables
     with app.app_context():
