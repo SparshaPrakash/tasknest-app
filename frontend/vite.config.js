@@ -5,6 +5,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
-    strictPort: true // 👈 force Vite to crash if 5173 is unavailable
+    strictPort: true,
+    host: true, // 👈 This allows access from external hosts
+    allowedHosts: ['.onrender.com'] // 👈 Prevents blocked requests from Render
+  },
+  preview: {
+    port: 4173,
+    host: true,
+    allowedHosts: ['.onrender.com']
   }
 })
